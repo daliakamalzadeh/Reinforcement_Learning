@@ -61,8 +61,8 @@ def q_learning(n_timesteps, learning_rate, gamma, policy='egreedy', epsilon=None
         if (t + 1) % eval_interval == 0:
             eval_returns.append(agent.evaluate(eval_env))
             eval_timesteps.append(t + 1)
-    # if plot:
-    #    env.render(Q_sa=pi.Q_sa,plot_optimal_policy=True,step_pause=0.1) # Plot the Q-value estimates during Q-learning execution
+    if plot:
+       env.render(Q_sa=agent.Q_sa,plot_optimal_policy=True,step_pause=0.1) # Plot the Q-value estimates during Q-learning execution
 
 
     return np.array(eval_returns), np.array(eval_timesteps)   
