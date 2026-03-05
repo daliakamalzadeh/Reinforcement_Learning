@@ -5,7 +5,8 @@ Practical for course 'Reinforcement Learning',
 Leiden University, The Netherlands
 By Thomas Moerland
 """
-
+import matplotlib
+matplotlib.use("Agg")
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
