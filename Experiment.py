@@ -45,7 +45,7 @@ def experiment():
     ####### Settings
     # Experiment      
     n_repetitions = 20
-    smoothing_window = 9 # Must be an odd number. Use 'None' to switch smoothing off!
+    smoothing_window = 9 # Must be an odd number. Use 'None' to switch smoothing off! 9
     plot = False # Plotting is very slow, switch it off when we run repetitions
     
     # MDP    
@@ -82,7 +82,7 @@ def experiment():
     learning_rate = 0.1
     backup = 'q'
     Plot = LearningCurvePlot(title = 'Exploration: $\epsilon$-greedy versus softmax exploration')    
-    Plot.set_ylim(-100, 100) 
+    Plot.set_ylim(-100, 110) 
     for epsilon in epsilons:        
         learning_curve, timesteps = average_over_repetitions(backup, n_repetitions, n_timesteps, max_episode_length, learning_rate, 
                                               gamma, policy, epsilon, temp, smoothing_window, plot, n, eval_interval)
@@ -102,7 +102,7 @@ def experiment():
     learning_rates = [0.03,0.1,0.3]
     backups = ['q','sarsa']
     Plot = LearningCurvePlot(title = 'Back-up: on-policy versus off-policy')    
-    Plot.set_ylim(-100, 100) 
+    Plot.set_ylim(-100, 110) 
     for backup in backups:
         for learning_rate in learning_rates:
             learning_curve, timesteps = average_over_repetitions(backup, n_repetitions, n_timesteps, max_episode_length, learning_rate, 

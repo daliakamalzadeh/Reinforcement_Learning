@@ -72,6 +72,8 @@ def sarsa(n_timesteps, learning_rate, gamma, policy='egreedy', epsilon=None, tem
 
     if plot:
        env.render(Q_sa=pi.Q_sa,plot_optimal_policy=True,step_pause=0.1) # Plot the Q-value estimates during SARSA execution
+       import matplotlib.pyplot as plt
+       plt.show(block=True)
 
     return np.array(eval_returns), np.array(eval_timesteps) 
 
@@ -89,7 +91,6 @@ def test():
     # Plotting parameters
     plot = True
     sarsa(n_timesteps, learning_rate, gamma, policy, epsilon, temp, plot)
-            
     
 if __name__ == '__main__':
     test()

@@ -35,6 +35,7 @@ def q_learning(n_timesteps, learning_rate, gamma, policy='egreedy', epsilon=None
     # sample initial state
     s = env.reset()
 
+
     # while budget do
     for t in range(n_timesteps):
 
@@ -63,7 +64,8 @@ def q_learning(n_timesteps, learning_rate, gamma, policy='egreedy', epsilon=None
             eval_timesteps.append(t + 1)
     if plot:
        env.render(Q_sa=agent.Q_sa,plot_optimal_policy=True,step_pause=0.1) # Plot the Q-value estimates during Q-learning execution
-
+       import matplotlib.pyplot as plt
+       plt.show(block=True)
 
     return np.array(eval_returns), np.array(eval_timesteps)   
 
