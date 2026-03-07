@@ -103,6 +103,22 @@ def experiment():
     mean_reward_per_timestep = total_reward / total_timesteps
 
     print("Mean reward per timestep under optimal policy: {}".format(mean_reward_per_timestep))
+    S
+    # For 1.4 part c.3
+    start_state = 3 
+    V_star_start = np.max(QIagent.Q_sa[start_state])
+    print("Optimal value at start state (s=3):", V_star_start)
+
+    # For 1.4 part c.4
+
+    V = V_star_start # optimal value at the start state
+    T_expected = 101 - V # the magnitude of the terminal reward, gives the expected number of steps to reach the goal under the optimal policy.
+    G_expected = 100 - (T_expected - 1)  # the magnitude of the reward on every other step, gives the expected total reward until reaching the goal under the optimal policy.
+    mean_reward_derived = G_expected / T_expected 
+
+    print("E[T]:", T_expected)
+    print("E[G]:", G_expected)
+    print("Mean reward per timestep (derived):", mean_reward_derived)
     
 if __name__ == '__main__':
     experiment()
