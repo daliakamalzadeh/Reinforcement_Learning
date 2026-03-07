@@ -200,7 +200,7 @@ Comparison between:
 Install dependencies:
 
 ```
-pip install numpy matplotlib scipy statsmodels
+pip install -r requirements.txt
 ```
 
 ---
