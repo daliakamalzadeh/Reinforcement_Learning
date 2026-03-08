@@ -118,7 +118,7 @@ def experiment():
     backup = 'nstep'
     ns = [1,3,10]
     Plot = LearningCurvePlot(title = 'Back-up: depth')   
-    Plot.set_ylim(-100, 100) 
+    Plot.set_ylim(-100, 110) 
     for n in ns:
         learning_curve, timesteps = average_over_repetitions(backup, n_repetitions, n_timesteps, max_episode_length, learning_rate, 
                                               gamma, policy, epsilon, temp, smoothing_window, plot, n, eval_interval)
