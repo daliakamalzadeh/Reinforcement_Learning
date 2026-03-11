@@ -206,6 +206,7 @@ pip install -r requirements.txt
 ---
 
 # Running Individual Algorithms
+Run the following commands:
 
 Dynamic Programming:
 
