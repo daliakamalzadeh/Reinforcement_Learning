@@ -205,6 +205,37 @@ pip install -r requirements.txt
 
 ---
 
+# Running Individual Algorithms
+
+Dynamic Programming:
+
+```
+python DynamicProgramming.py
+```
+
+Q-learning:
+
+```
+python Q_learning.py
+```
+
+SARSA:
+
+```
+python SARASA.py
+```
+Monte Carlo:
+
+```
+python MonteCarlo.py
+```
+Nstep:
+
+```
+python Nstep.py
+```
+---
+
 # Running the Experiments
 
 Run the following command:
