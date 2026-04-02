@@ -93,7 +93,7 @@ def run_ablation_study(base_cfg: Config, num_seeds=3, smoothing_window=20):
             "lr = 5e-3": replace(base_cfg, learning_rate=5e-3),
         },
         "network_architecture": {
-            "64": replace(base_cfg, hidden_sizes=(64,)),
+            "64, 64": replace(base_cfg, hidden_sizes=(64,)),
             "128, 128": replace(base_cfg, hidden_sizes=(128, 128)),
             "256, 256": replace(base_cfg, hidden_sizes=(256, 256)),
         },

@@ -84,7 +84,7 @@ if __name__ == "__main__":
     cfg = Config(
         learning_rate=1e-3,
         hidden_sizes=(128, 128),
-        epsilon_decay_steps=20_000,
+        epsilon_decay_steps=50_000,
         total_env_steps=50_000,
         batch_size=64,
         replay_buffer_size=50_000,
