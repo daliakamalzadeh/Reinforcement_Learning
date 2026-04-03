@@ -25,6 +25,8 @@ class Config:
     epsilon_start: float = 1.0
     epsilon_end: float = 0.05
     epsilon_decay_steps: int = 20000
+    updates_per_step: float = 1.0
+
 
     hidden_sizes: tuple = (128, 128)
 
@@ -202,6 +204,8 @@ def train(cfg: Config):
     set_seed(cfg.seed)
 
     env = gym.make(cfg.env_name)
+    env.action_space.seed(cfg.seed)
+
     obs_dim = env.observation_space.shape[0]
     action_dim = env.action_space.n
 
@@ -217,6 +221,8 @@ def train(cfg: Config):
     return_steps = []
     losses = []
 
+    update_accumulator = 0.0
+
     while env_steps < cfg.total_env_steps:
         epsilon = epsilon_by_step(env_steps, cfg)
         action = agent.select_action(state, epsilon)
@@ -224,9 +230,12 @@ def train(cfg: Config):
         next_state, reward, terminated, truncated, _ = env.step(action)
         done = terminated or truncated
 
-        loss = agent.update(state, action, reward, next_state, done)
-        if loss is not None:
-            losses.append(loss)
+        update_accumulator += cfg.updates_per_step
+        while update_accumulator >= 1.0:
+            loss = agent.update(state, action, reward, next_state, done)
+            if loss is not None:
+                losses.append(loss)
+            update_accumulator -= 1.0
 
         episode_return += reward
         env_steps += 1

@@ -20,6 +20,7 @@ class Config:
     total_env_steps: int = 50000
     gamma: float = 0.99
     learning_rate: float = 1e-3
+    updates_per_step: float = 1.0
 
     epsilon_start: float = 1.0
     epsilon_end: float = 0.05
@@ -139,6 +140,8 @@ def train(cfg: Config):
     return_steps = []
     losses = []
 
+    update_accumulator = 0.0
+
     while env_steps < cfg.total_env_steps:
         epsilon = epsilon_by_step(env_steps, cfg)
         action = agent.select_action(state, epsilon)
@@ -146,8 +149,11 @@ def train(cfg: Config):
         next_state, reward, terminated, truncated, _ = env.step(action)
         done = terminated or truncated
 
-        loss = agent.update(state, action, reward, next_state, done)
-        losses.append(loss)
+        update_accumulator += cfg.updates_per_step
+        while update_accumulator >= 1.0:
+            loss = agent.update(state, action, reward, next_state, done)
+            losses.append(loss)
+            update_accumulator -= 1.0
 
         episode_return += reward
         env_steps += 1
