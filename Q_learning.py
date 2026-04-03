@@ -17,7 +17,7 @@ class Config:
     env_name: str = "CartPole-v1"
     seed: int = 42
 
-    total_env_steps: int = 50000
+    total_env_steps: int = 1_000_000
     gamma: float = 0.99
     learning_rate: float = 1e-3
     updates_per_step: float = 1.0

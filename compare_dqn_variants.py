@@ -7,7 +7,7 @@ import numpy as np
 from Q_learning_target_replay import Config, train, moving_average
 
 
-def run_multiple_seeds(cfg: Config, num_seeds=3):
+def run_multiple_seeds(cfg: Config, num_seeds=5):
     runs = []
     for i in range(num_seeds):
         cfg_i = copy.deepcopy(cfg)
@@ -62,7 +62,7 @@ def plot_variant_comparison(curves, cfg: Config, save_path="dqn_variant_comparis
     plt.show()
 
 
-def run_variant_study(base_cfg: Config, num_seeds=3, smoothing_window=20):
+def run_variant_study(base_cfg: Config, num_seeds=5, smoothing_window=20):
     variants = {
         "Naive": replace(base_cfg, use_target_network=False, use_replay_buffer=False),
         "Only TN": replace(base_cfg, use_target_network=True, use_replay_buffer=False),
@@ -84,13 +84,13 @@ if __name__ == "__main__":
     cfg = Config(
         learning_rate=1e-3,
         hidden_sizes=(128, 128),
-        epsilon_decay_steps=20_000,
+        epsilon_decay_steps=50_000,      
         updates_per_step=2.0,
-        total_env_steps=50_000,
+        total_env_steps=1_000_000,
         batch_size=64,
-        replay_buffer_size=50_000,
-        min_replay_size=1_000,
-        target_update_freq=500,
+        replay_buffer_size=100_000,      
+        min_replay_size=5_000,
+        target_update_freq=1000,
         log_every_episodes=10_000_000,
     )
-    run_variant_study(cfg, num_seeds=3, smoothing_window=20)
+    run_variant_study(cfg, num_seeds=5, smoothing_window=20)
