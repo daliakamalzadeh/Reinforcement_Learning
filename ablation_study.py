@@ -86,21 +86,21 @@ def plot_ablation_result(study_name, curves, cfg: Config, save_path: str, smooth
 
 def run_ablation_study(base_cfg: Config, num_seeds=3, smoothing_window=20):
     studies = {
-        # "learning_rate": {
-        #     "lr = 1e-4": replace(base_cfg, learning_rate=1e-4),
-        #     "lr = 1e-3": replace(base_cfg, learning_rate=1e-3),
-        #     "lr = 5e-3": replace(base_cfg, learning_rate=5e-3),
-        # },
-        # "network_architecture": {
-        #     "64, 64": replace(base_cfg, hidden_sizes=(64, 64)),
-        #     "128, 128": replace(base_cfg, hidden_sizes=(128, 128)),
-        #     "256, 256": replace(base_cfg, hidden_sizes=(256, 256)),
-        # },
-        # "epsilon_decay": {
-        #     "10k steps": replace(base_cfg, epsilon_decay_steps=10_000),
-        #     "20k steps": replace(base_cfg, epsilon_decay_steps=20_000),
-        #     "50k steps": replace(base_cfg, epsilon_decay_steps=50_000),
-        # },
+        "learning_rate": {
+            "lr = 1e-4": replace(base_cfg, learning_rate=1e-4),
+            "lr = 1e-3": replace(base_cfg, learning_rate=1e-3),
+            "lr = 5e-3": replace(base_cfg, learning_rate=5e-3),
+        },
+        "network_architecture": {
+            "64, 64": replace(base_cfg, hidden_sizes=(64, 64)),
+            "128, 128": replace(base_cfg, hidden_sizes=(128, 128)),
+            "256, 256": replace(base_cfg, hidden_sizes=(256, 256)),
+        },
+        "epsilon_decay": {
+            "10k steps": replace(base_cfg, epsilon_decay_steps=10_000),
+            "20k steps": replace(base_cfg, epsilon_decay_steps=20_000),
+            "50k steps": replace(base_cfg, epsilon_decay_steps=50_000),
+        },
         "update_to_data_ratio": {
             "0.5 updates/step": replace(base_cfg, updates_per_step=0.5),
             "1 update/step": replace(base_cfg, updates_per_step=1.0),
