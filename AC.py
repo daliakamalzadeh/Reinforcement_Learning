@@ -4,14 +4,11 @@ from dataclasses import dataclass
 import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
 
-
-# config
 
 @dataclass
 class Config:
@@ -30,7 +27,6 @@ class Config:
     plot_path: str = "actor_critic_cartpole.png"
 
 
-
 def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
@@ -43,7 +39,15 @@ def moving_average(x, window=20):
     return np.convolve(x, np.ones(window) / window, mode="valid")
 
 
-# networks
+def compute_returns(rewards, gamma):
+    returns = []
+    G = 0.0
+    for r in reversed(rewards):
+        G = r + gamma * G
+        returns.append(G)
+    returns.reverse()
+    return returns
+
 
 class PolicyNetwork(nn.Module):
     def __init__(self, obs_dim: int, action_dim: int, hidden_sizes=(128, 128)):
@@ -58,7 +62,7 @@ class PolicyNetwork(nn.Module):
         self.net = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.net(x)  # logits
+        return self.net(x)
 
 
 class QNetwork(nn.Module):
@@ -74,10 +78,8 @@ class QNetwork(nn.Module):
         self.net = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.net(x)  # Q(s, ·)
+        return self.net(x)
 
-
-# agent
 
 class ActorCriticAgent:
     def __init__(self, obs_dim: int, action_dim: int, cfg: Config, device="cpu"):
@@ -92,7 +94,7 @@ class ActorCriticAgent:
 
         self.critic_loss_fn = nn.MSELoss()
 
-    def sample_action_and_log_prob(self, state: np.ndarray):
+    def sample_action(self, state):
         state_t = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
         logits = self.actor(state_t)
         dist = Categorical(logits=logits)
@@ -100,50 +102,41 @@ class ActorCriticAgent:
         log_prob = dist.log_prob(action)
         return int(action.item()), log_prob.squeeze()
 
-    def update(self, state, action, log_prob, reward, next_state, done):
-        state_t = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
-        next_state_t = torch.tensor(next_state, dtype=torch.float32, device=self.device).unsqueeze(0)
-        action_t = torch.tensor([[action]], dtype=torch.long, device=self.device)
-        reward_t = torch.tensor([[reward]], dtype=torch.float32, device=self.device)
-        done_t = torch.tensor([[float(done)]], dtype=torch.float32, device=self.device)
+    def update_episode(self, states, actions, log_probs, returns):
+        states_t = torch.tensor(np.array(states), dtype=torch.float32, device=self.device)
+        actions_t = torch.tensor(actions, dtype=torch.long, device=self.device).unsqueeze(1)
+        returns_t = torch.tensor(returns, dtype=torch.float32, device=self.device).unsqueeze(1)
 
-        # current Q(s,a)
-        q_values = self.critic(state_t)
-        q_sa = q_values.gather(1, action_t)  # shape [1,1]
+        # ----- actor update -----
+        # Use MC return minus critic baseline
+        logits = self.actor(states_t)
+        probs = torch.softmax(logits, dim=-1)
 
-        # sample next action from current policy (on-policy target)
         with torch.no_grad():
-            if done:
-                target = reward_t
-            else:
-                next_logits = self.actor(next_state_t)
-                next_dist = Categorical(logits=next_logits)
-                next_action = next_dist.sample()
-                next_q_values = self.critic(next_state_t)
-                next_q_sa = next_q_values.gather(1, next_action.view(1, 1))
-                target = reward_t + self.gamma * next_q_sa
+            q_values_detached = self.critic(states_t)                  # [T, action_dim]
+            baseline = (probs * q_values_detached).sum(dim=1)         # [T]
+            advantage = returns_t.squeeze(1) - baseline               # [T]
 
-        # critic update
-        critic_loss = self.critic_loss_fn(q_sa, target)
-
-        self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        self.critic_optimizer.step()
-
-        # actor update
-        with torch.no_grad():
-            q_for_actor = self.critic(state_t).gather(1, action_t).squeeze()
-
-        actor_loss = -log_prob * q_for_actor
+        log_probs_t = torch.stack(log_probs)                          # [T]
+        actor_loss = -(log_probs_t * advantage).mean()
 
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
 
+        # ----- critic update -----
+        # Fit Q(s,a) to MC return G_t
+        q_values = self.critic(states_t)                              # [T, action_dim]
+        q_sa = q_values.gather(1, actions_t)                          # [T, 1]
+
+        critic_loss = self.critic_loss_fn(q_sa, returns_t)
+
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        self.critic_optimizer.step()
+
         return actor_loss.item(), critic_loss.item()
 
-
-# training
 
 def train(cfg: Config):
     set_seed(cfg.seed)
@@ -157,7 +150,7 @@ def train(cfg: Config):
     env_steps = 0
     episode_idx = 0
 
-    returns = []
+    returns_history = []
     return_steps = []
     actor_losses = []
     critic_losses = []
@@ -167,29 +160,43 @@ def train(cfg: Config):
         done = False
         episode_return = 0.0
 
-        while not done and env_steps < cfg.total_env_steps:
-            action, log_prob = agent.sample_action_and_log_prob(state)
+        states = []
+        actions = []
+        rewards = []
+        log_probs = []
 
+        while not done and env_steps < cfg.total_env_steps:
+            action, log_prob = agent.sample_action(state)
             next_state, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
 
-            actor_loss, critic_loss = agent.update(
-                state, action, log_prob, reward, next_state, done
-            )
-
-            actor_losses.append(actor_loss)
-            critic_losses.append(critic_loss)
+            states.append(state)
+            actions.append(action)
+            rewards.append(reward)
+            log_probs.append(log_prob)
 
             state = next_state
             episode_return += reward
             env_steps += 1
 
+        mc_returns = compute_returns(rewards, cfg.gamma)
+
+        actor_loss, critic_loss = agent.update_episode(
+            states=states,
+            actions=actions,
+            log_probs=log_probs,
+            returns=mc_returns,
+        )
+
+        actor_losses.append(actor_loss)
+        critic_losses.append(critic_loss)
+
         episode_idx += 1
-        returns.append(episode_return)
+        returns_history.append(episode_return)
         return_steps.append(env_steps)
 
         if episode_idx % cfg.log_every_episodes == 0:
-            avg_last_10 = np.mean(returns[-10:]) if len(returns) >= 10 else np.mean(returns)
+            avg_last_10 = np.mean(returns_history[-10:]) if len(returns_history) >= 10 else np.mean(returns_history)
             avg_actor = np.mean(actor_losses[-100:]) if len(actor_losses) >= 100 else np.mean(actor_losses)
             avg_critic = np.mean(critic_losses[-100:]) if len(critic_losses) >= 100 else np.mean(critic_losses)
 
@@ -198,40 +205,36 @@ def train(cfg: Config):
                 f"Steps {env_steps:6d} | "
                 f"Return {episode_return:6.1f} | "
                 f"Avg(Last10) {avg_last_10:6.1f} | "
-                f"ActorLoss {avg_actor:9.4f} | "
-                f"CriticLoss {avg_critic:9.4f}"
+                f"ActorLoss {avg_actor:10.6f} | "
+                f"CriticLoss {avg_critic:10.6f}"
             )
 
     env.close()
 
     return (
         np.array(return_steps),
-        np.array(returns),
+        np.array(returns_history),
         np.array(actor_losses),
         np.array(critic_losses),
     )
 
-
-# plotting
 
 def plot_learning_curve(return_steps, returns, cfg: Config):
     plt.figure(figsize=(10, 6))
 
     max_step = int(return_steps[-1])
 
-    plt.plot(return_steps, returns, alpha=0.25, label="Basic AC (raw)")
+    plt.plot(return_steps, returns, alpha=0.25, label="AC (raw)")
     if len(returns) >= 20:
         smoothed = moving_average(returns, window=20)
         smoothed_steps = return_steps[19:]
-        plt.plot(smoothed_steps, smoothed, linewidth=2, label="Basic AC (smoothed)")
-
-
+        plt.plot(smoothed_steps, smoothed, linewidth=2, label="AC (smoothed)")
 
     plt.axhline(500, linestyle=":", linewidth=1.5, label="Optimal performance = 500")
     plt.xlim(0, max_step)
     plt.xlabel("Environment steps")
     plt.ylabel("Return")
-    plt.title("CartPole: Basic Actor-Critic")
+    plt.title("CartPole: Actor-Critic")
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
