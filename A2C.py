@@ -15,6 +15,8 @@ from torch.distributions import Categorical
 
 @dataclass
 class Config:
+    """Configuration class setting up all hyperparameters and experiment settings."""
+
     env_name: str = "CartPole-v1"
     seed: int = 42
 
@@ -33,12 +35,16 @@ class Config:
 
 
 def set_seed(seed: int):
+    """Setting random seeds for reproducibility."""
+
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
 
 
 def moving_average(x, window=20):
+    """Compute a moving average over a fixed window for smoothing learning curves."""
+
     if len(x) < window:
         return x
     return np.convolve(x, np.ones(window) / window, mode="valid")
@@ -48,6 +54,13 @@ def moving_average(x, window=20):
 
 class PolicyNetwork(nn.Module):
     def __init__(self, obs_dim: int, action_dim: int, hidden_sizes=(128, 128)):
+        """
+        Initializing the policy network.
+
+        Maps observations to action logits, which are later converted
+        into probabilities using a categorical distribution.
+        """
+
         super().__init__()
 
         layers = []
@@ -66,6 +79,12 @@ class PolicyNetwork(nn.Module):
 
 class ValueNetwork(nn.Module):
     def __init__(self, obs_dim: int, hidden_sizes=(128, 128)):
+        """
+        Initialize value network.
+
+        Outputs a scalar value estimate for each state.
+        """
+
         super().__init__()
 
         layers = []
@@ -86,6 +105,10 @@ class ValueNetwork(nn.Module):
 
 class A2CAgent:
     def __init__(self, obs_dim: int, action_dim: int, cfg: Config, device="cpu"):
+        """
+        Initialize actor, critic, optimizers, and loss function.
+        """
+
         self.gamma = cfg.gamma
         self.normalize_advantages = cfg.normalize_advantages
         self.device = torch.device(device)
@@ -99,6 +122,8 @@ class A2CAgent:
         self.value_loss_fn = nn.MSELoss()
 
     def select_action(self, state: np.ndarray):
+        """Sample an action from the current policy."""
+
         state_t = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
         logits = self.actor(state_t)
         dist = Categorical(logits=logits)
@@ -107,6 +132,8 @@ class A2CAgent:
         return int(action.item()), log_prob.squeeze()
 
     def compute_returns(self, rewards):
+        """Compute discounted Monte Carlo returns."""
+
         returns = []
         G = 0.0
 
@@ -118,12 +145,14 @@ class A2CAgent:
         return torch.tensor(returns, dtype=torch.float32, device=self.device)
 
     def update(self, states, log_probs, rewards):
-        states_t = torch.tensor(np.array(states), dtype=torch.float32, device=self.device)  # [T, obs_dim]
-        log_probs_t = torch.stack(log_probs)                                                 # [T]
-        returns_t = self.compute_returns(rewards)                                            # [T]
+        """Update the actor and critic networks."""
+
+        states_t = torch.tensor(np.array(states), dtype=torch.float32, device=self.device)  
+        log_probs_t = torch.stack(log_probs)                                                 
+        returns_t = self.compute_returns(rewards)                                            
 
         # critic: V(s)
-        values_t = self.critic(states_t)                                                     # [T]
+        values_t = self.critic(states_t)                                                     
 
         # advantage: A = G - V(s)
         advantages_t = returns_t - values_t
@@ -155,6 +184,13 @@ class A2CAgent:
 # training
 
 def train(cfg: Config):
+    """
+    Training the A2C agent.
+
+    After each episode, discounted returns are computed and used to update
+    the critic (value estimation) and the actor (policy improvement via advantages).
+    """
+
     set_seed(cfg.seed)
 
     env = gym.make(cfg.env_name)

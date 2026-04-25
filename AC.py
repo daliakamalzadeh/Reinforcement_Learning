@@ -12,6 +12,8 @@ from torch.distributions import Categorical
 
 @dataclass
 class Config:
+    """Configuration class setting up all hyperparameters and experiment settings."""
+
     env_name: str = "CartPole-v1"
     seed: int = 42
 
@@ -28,18 +30,24 @@ class Config:
 
 
 def set_seed(seed: int):
+    """Setting random seeds for reproducibility."""
+
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
 
 
 def moving_average(x, window=20):
+    """Compute a moving average over a fixed window for smoothing learning curves."""
+
     if len(x) < window:
         return x
     return np.convolve(x, np.ones(window) / window, mode="valid")
 
 
 def compute_returns(rewards, gamma):
+    """Compute discounted Monte Carlo returns for one episode."""
+
     returns = []
     G = 0.0
     for r in reversed(rewards):
@@ -51,6 +59,13 @@ def compute_returns(rewards, gamma):
 
 class PolicyNetwork(nn.Module):
     def __init__(self, obs_dim: int, action_dim: int, hidden_sizes=(128, 128)):
+        """
+        Initializing the policy network.
+
+        Maps observations to action logits, which are later converted
+        into probabilities using a categorical distribution.
+        """
+
         super().__init__()
         layers = []
         in_dim = obs_dim
@@ -67,6 +82,13 @@ class PolicyNetwork(nn.Module):
 
 class QNetwork(nn.Module):
     def __init__(self, obs_dim: int, action_dim: int, hidden_sizes=(128, 128)):
+        """
+        Initialize the critic network.
+
+        The network maps an observation to Q-values for all possible actions.
+        Q(s, a) is then selected using the action taken by the actor.
+        """
+
         super().__init__()
         layers = []
         in_dim = obs_dim
@@ -83,6 +105,13 @@ class QNetwork(nn.Module):
 
 class ActorCriticAgent:
     def __init__(self, obs_dim: int, action_dim: int, cfg: Config, device="cpu"):
+        """
+        Initialize the actor, critic, optimizers, and loss function.
+
+        The actor learns a stochastic policy, while the critic estimates Q-values
+        used to guide the actor update.
+        """
+
         self.gamma = cfg.gamma
         self.device = torch.device(device)
 
@@ -95,6 +124,13 @@ class ActorCriticAgent:
         self.critic_loss_fn = nn.MSELoss()
 
     def sample_action(self, state):
+        """
+        Sample an action from the current policy.
+
+        Returns both the sampled action and its log-probability, because the
+        log-probability is required later for the policy-gradient update.
+        """
+
         state_t = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
         logits = self.actor(state_t)
         dist = Categorical(logits=logits)
@@ -103,31 +139,38 @@ class ActorCriticAgent:
         return int(action.item()), log_prob.squeeze()
 
     def update_episode(self, states, actions, log_probs, returns):
+        """
+        Update actor and critic after one complete episode.
+
+        The critic is trained to predict Monte Carlo returns. The actor is updated
+        using a policy-gradient objective weighted by an advantage estimate.
+        """
+
         states_t = torch.tensor(np.array(states), dtype=torch.float32, device=self.device)
         actions_t = torch.tensor(actions, dtype=torch.long, device=self.device).unsqueeze(1)
         returns_t = torch.tensor(returns, dtype=torch.float32, device=self.device).unsqueeze(1)
 
-        # ----- actor update -----
+        # actor update
         # Use MC return minus critic baseline
         logits = self.actor(states_t)
         probs = torch.softmax(logits, dim=-1)
 
         with torch.no_grad():
-            q_values_detached = self.critic(states_t)                  # [T, action_dim]
-            baseline = (probs * q_values_detached).sum(dim=1)         # [T]
-            advantage = returns_t.squeeze(1) - baseline               # [T]
+            q_values_detached = self.critic(states_t)                  
+            baseline = (probs * q_values_detached).sum(dim=1)         
+            advantage = returns_t.squeeze(1) - baseline               
 
-        log_probs_t = torch.stack(log_probs)                          # [T]
+        log_probs_t = torch.stack(log_probs)                          
         actor_loss = -(log_probs_t * advantage).mean()
 
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
 
-        # ----- critic update -----
+        # critic update
         # Fit Q(s,a) to MC return G_t
-        q_values = self.critic(states_t)                              # [T, action_dim]
-        q_sa = q_values.gather(1, actions_t)                          # [T, 1]
+        q_values = self.critic(states_t)                              
+        q_sa = q_values.gather(1, actions_t)                          
 
         critic_loss = self.critic_loss_fn(q_sa, returns_t)
 
@@ -139,6 +182,13 @@ class ActorCriticAgent:
 
 
 def train(cfg: Config):
+    """
+    Training the Actor-Critic agent.
+
+    The agent interacts with the environment episode by episode. After each
+    episode, Monte Carlo returns are computed and both actor and critic are updated.
+    """
+
     set_seed(cfg.seed)
 
     env = gym.make(cfg.env_name)

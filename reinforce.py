@@ -15,6 +15,8 @@ from torch.distributions import Categorical
 
 @dataclass
 class Config:
+    """Configuration class setting up all hyperparameters and experiment settings."""
+
     env_name: str = "CartPole-v1"
     seed: int = 42
 
@@ -31,12 +33,16 @@ class Config:
 
 
 def set_seed(seed: int):
+    """Setting random seeds for reproducibility."""
+
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
 
 
 def moving_average(x, window=20):
+    """Compute a moving average over a fixed window for smoothing learning curves."""
+
     if len(x) < window:
         return x
     return np.convolve(x, np.ones(window) / window, mode="valid")
@@ -46,6 +52,13 @@ def moving_average(x, window=20):
 
 class PolicyNetwork(nn.Module):
     def __init__(self, obs_dim: int, action_dim: int, hidden_sizes=(128, 128)):
+        """
+        Initialize policy network.
+
+        The network maps an observation to action logits. These logits are later
+        converted into a probability distribution using a Categorical distribution.
+        """
+
         super().__init__()
 
         layers = []
@@ -66,6 +79,12 @@ class PolicyNetwork(nn.Module):
 
 class REINFORCEAgent:
     def __init__(self, obs_dim: int, action_dim: int, cfg: Config, device="cpu"):
+        """
+        Initialize policy network and optimizer.
+
+        REINFORCE directly optimizes the policy using sampled returns.       
+        """
+
         self.gamma = cfg.gamma
         self.normalize_returns = cfg.normalize_returns
         self.device = torch.device(device)
@@ -74,6 +93,8 @@ class REINFORCEAgent:
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=cfg.learning_rate)
 
     def select_action(self, state: np.ndarray):
+        """ Sample an action from the current policy. """
+
         state_t = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
         logits = self.policy_net(state_t)
         dist = Categorical(logits=logits)
@@ -82,6 +103,8 @@ class REINFORCEAgent:
         return int(action.item()), log_prob.squeeze()
 
     def compute_returns(self, rewards):
+        """Compute discounted Monte Carlo returns."""
+
         returns = []
         G = 0.0
 
@@ -98,6 +121,8 @@ class REINFORCEAgent:
         return returns
 
     def update(self, log_probs, rewards):
+        """ Update policy after one complete episode."""
+
         returns = self.compute_returns(rewards)
 
         log_probs_t = torch.stack(log_probs)  # shape: [T]
@@ -113,6 +138,13 @@ class REINFORCEAgent:
 # training
 
 def train(cfg: Config):
+    """
+    Training the REINFORCE agent.
+
+    The agent interacts with the environment episode by episode. After each
+    episode, discounted returns are computed and used to update the policy.
+    """
+
     set_seed(cfg.seed)
 
     env = gym.make(cfg.env_name)

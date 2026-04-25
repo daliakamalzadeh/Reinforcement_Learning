@@ -12,10 +12,10 @@ import torch.optim as optim
 from torch.distributions import Categorical
 
 
-# Config
-
 @dataclass
 class Config:
+    """Configuration class containing experiment settings and hyperparameters."""
+
     env_name: str = "CartPole-v1"
     total_env_steps: int = 1_000_000
     gamma: float = 0.99
@@ -33,12 +33,20 @@ class Config:
 # Helpers
 
 def set_seed(seed: int):
+    """Setting random seeds for reproducibility."""
+
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
 
 
 def make_mlp(in_dim: int, out_dim: int, hidden_sizes: tuple) -> nn.Sequential:
+    """
+    Build a fully connected neural network.
+
+    The network uses ReLU activations between hidden layers and a linear output layer.
+    """
+
     layers = []
     d = in_dim
     for h in hidden_sizes:
@@ -49,7 +57,8 @@ def make_mlp(in_dim: int, out_dim: int, hidden_sizes: tuple) -> nn.Sequential:
 
 
 def compute_mc_returns(rewards: list, gamma: float) -> list:
-    """Compute discounted Monte Carlo returns from a list of rewards."""
+    """Compute discounted Monte Carlo returns."""
+
     returns, G = [], 0.0
     for r in reversed(rewards):
         G = r + gamma * G
@@ -67,11 +76,11 @@ def save_results(algo: str, seed: int, steps: np.ndarray,
 
 
 # Networks
-# All three algorithms share the same policy network architecture,
-# ensuring a fair comparison across methods.
+# All three algorithms share the same policy network architecture, ensuring a fair comparison across methods.
 
 class PolicyNetwork(nn.Module):
     """Maps state -> action logits."""
+
     def __init__(self, obs_dim, action_dim, hidden_sizes):
         super().__init__()
         self.net = make_mlp(obs_dim, action_dim, hidden_sizes)
@@ -82,6 +91,7 @@ class PolicyNetwork(nn.Module):
 
 class QNetwork(nn.Module):
     """Maps state -> Q-value per action (used by AC)."""
+
     def __init__(self, obs_dim, action_dim, hidden_sizes):
         super().__init__()
         self.net = make_mlp(obs_dim, action_dim, hidden_sizes)
@@ -92,6 +102,7 @@ class QNetwork(nn.Module):
 
 class ValueNetwork(nn.Module):
     """Maps state -> scalar V(s) (used by A2C)."""
+    
     def __init__(self, obs_dim, hidden_sizes):
         super().__init__()
         self.net = make_mlp(obs_dim, 1, hidden_sizes)
@@ -133,7 +144,7 @@ def run_reinforce(cfg: Config, seed: int):
             ep_return += reward
             env_steps += 1
 
-        # Compute discounted returns and optionally normalise to reduce variance
+        # compute discounted returns and optionally normalise to reduce variance
         returns = torch.tensor(compute_mc_returns(ep_rewards, cfg.gamma),
                                dtype=torch.float32, device=device)
         if cfg.normalize_returns and len(returns) > 1:
